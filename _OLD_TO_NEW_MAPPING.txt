@@ -1,0 +1,16 @@
+Old File -> New File
+constants.gs -> Config.gs
+ep_cols_const.gs -> Config.gs
+utils.gs -> Core.gs
+debug.gs -> Core.gs
+setup.gs -> Core.gs
+ep_index.gs -> IndicesRefs.gs
+subs_index.gs -> IndicesRefs.gs
+epson_lookup.gs -> IndicesRefs.gs
+shim_fuzzy_rank.gs -> IndicesRefs.gs
+dv_helpers.gs -> ImportMappingUI.gs
+mapping_grid.gs -> ImportMappingUI.gs
+on_edit_fix.gs -> ImportMappingUI.gs
+convert_strict.gs -> ConvertEngine.gs
+save_store.gs -> StoreIO.gs
+Download.gs -> Download.gs

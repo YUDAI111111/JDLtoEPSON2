@@ -1,0 +1,77 @@
+[
+  {
+    "old_file": "constants.gs",
+    "sha256_16": "aa1850ccc42a8667",
+    "new_file": "Config.gs"
+  },
+  {
+    "old_file": "ep_cols_const.gs",
+    "sha256_16": "a5d345ed9979890e",
+    "new_file": "Config.gs"
+  },
+  {
+    "old_file": "utils.gs",
+    "sha256_16": "8fc4d7233db05131",
+    "new_file": "Core.gs"
+  },
+  {
+    "old_file": "debug.gs",
+    "sha256_16": "39f82d65bcfe957f",
+    "new_file": "Core.gs"
+  },
+  {
+    "old_file": "setup.gs",
+    "sha256_16": "0a9b1e4c745e6c9e",
+    "new_file": "Core.gs"
+  },
+  {
+    "old_file": "ep_index.gs",
+    "sha256_16": "4f9cb79f0161712a",
+    "new_file": "IndicesRefs.gs"
+  },
+  {
+    "old_file": "subs_index.gs",
+    "sha256_16": "d5f6b74d3b4eb558",
+    "new_file": "IndicesRefs.gs"
+  },
+  {
+    "old_file": "epson_lookup.gs",
+    "sha256_16": "4ade28fda6711a37",
+    "new_file": "IndicesRefs.gs"
+  },
+  {
+    "old_file": "shim_fuzzy_rank.gs",
+    "sha256_16": "76b87f3325d2222b",
+    "new_file": "IndicesRefs.gs"
+  },
+  {
+    "old_file": "dv_helpers.gs",
+    "sha256_16": "8878f64d0c1a13f9",
+    "new_file": "ImportMappingUI.gs"
+  },
+  {
+    "old_file": "mapping_grid.gs",
+    "sha256_16": "775b23b4bb5ffc75",
+    "new_file": "ImportMappingUI.gs"
+  },
+  {
+    "old_file": "on_edit_fix.gs",
+    "sha256_16": "b132310ae3998ab4",
+    "new_file": "ImportMappingUI.gs"
+  },
+  {
+    "old_file": "convert_strict.gs",
+    "sha256_16": "560983ec44b3a727",
+    "new_file": "ConvertEngine.gs"
+  },
+  {
+    "old_file": "save_store.gs",
+    "sha256_16": "13eccef9431eaa84",
+    "new_file": "StoreIO.gs"
+  },
+  {
+    "old_file": "Download.gs",
+    "sha256_16": "2e4c4df315f738fa",
+    "new_file": "Download.gs"
+  }
+]
