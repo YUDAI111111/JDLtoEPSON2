@@ -2,6 +2,7 @@
  * FinancialStatements.gs — 1_Data_import から JDL試算表を作成（左BS｜右PL）
  * 仕様：ヘッダ=4行目、データは5行目〜／出力は1枚シート（左BS｜右PL）
  * 科目分類は“名称ベースのみ”。特例：事業主貸=資産／事業主借=負債／家事消費=収益(マイナス表示)
+ * 表示：空行なし／行高18px／折返しオフ／PLは「当期損益」に統一
  *******************************************************/
 function buildJDLTrialBalance() {
   var ss = SpreadsheetApp.getActive();
@@ -80,7 +81,7 @@ function buildNameClassMap_(){
 
 /* ====== 集計・表構築 ====== */
 function addLine_(bsAgg, plAgg, klass, acc, drAmt, crAmt){
-  var key = [acc.code||'', acc.name||'', acc.subCd||'', acc.subNm||''].join('|');
+  var key = key_(acc.code, acc.name, acc.subCd, acc.subNm);
   var cls = klass.cls;
 
   if (cls === 'ASSET' || cls === 'LIAB' || cls === 'EQUITY') {
@@ -117,7 +118,7 @@ function buildBs_(agg, priorOpening){
         var sNet = (cls==='ASSET') ? (s.dr - s.cr) : (s.cr - s.dr);
         rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, sOpen, s.dr, s.cr, sOpen + sNet]);
       });
-      rows.push(['','','','','','','','']);
+      // 空行は入れない
     });
   });
   return {values: rows};
@@ -126,7 +127,7 @@ function buildBs_(agg, priorOpening){
 function buildPl_(agg){
   var rows = [];
   rows.push(['【損益計算書（PL）】','','','','','','']);
-  rows.push(['科目コード','科目名','補助コード','補助名','借方発生','貸方発生','当期ネット']);
+  rows.push(['科目コード','科目名','補助コード','補助名','借方発生','貸方発生','当期損益']); // 表記を統一
 
   var rev=[], exp=[], unk=[];
   Object.keys(agg).forEach(function(k){
@@ -148,7 +149,7 @@ function buildPl_(agg){
           if (s.special==='KAJI') sNet = -Math.abs(sNet);
           rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, s.dr, s.cr, sNet]);
         });
-        rows.push(['','','','','','','']);
+        // 空行は入れない
       });
     });
 
@@ -178,7 +179,7 @@ function readOpening_(sh){
     var row=vals[r-1], code=safe(row[0]), name=safe(row[1]), subCd=safe(row[2]), subNm=safe(row[3]);
     if (!code && !name && !subCd && !subNm) continue;
     var opening = Number(row[4]) || 0;
-    map[[code,name,subCd,subNm].join('|')] = opening;
+    map[key_(code,name,subCd,subNm)] = opening;
   }
   return map;
 }
@@ -191,6 +192,10 @@ function formatBs_(sh, r, c, rows){
   [5,6,7,8].forEach(function(off){
     sh.getRange(r+2, c+off-1, rows-2, 1).setNumberFormat('#,##0;[Red]-#,##0;"-"');
   });
+  // 折返しオフ＆行高詰め
+  sh.getRange(r, c, rows, 8).setWrap(false);
+  sh.setRowHeights(r+2, Math.max(0, rows-2), 18);
+  // 親行を太字（補助名セルが空の行を親とみなす）
   var data=sh.getRange(r+2, c, rows-2, 4).getValues();
   for (var i=0;i<data.length;i++){
     var subNm=data[i][3];
@@ -204,6 +209,10 @@ function formatPl_(sh, r, c, rows){
   [5,6,7].forEach(function(off){
     sh.getRange(r+2, c+off-1, rows-2, 1).setNumberFormat('#,##0;[Red]-#,##0;"-"');
   });
+  // 折返しオフ＆行高詰め
+  sh.getRange(r, c, rows, 7).setWrap(false);
+  sh.setRowHeights(r+2, Math.max(0, rows-2), 18);
+  // 親行太字
   var data=sh.getRange(r+2, c, rows-2, 4).getValues();
   for (var i=0;i<data.length;i++){
     var subNm=data[i][3];
@@ -244,4 +253,8 @@ function hasKajishi_(p){
   if (p.name === '家事消費') return true;
   for (var i=0;i<(p.subs||[]).length;i++){ if (p.subs[i].subNm === '家事消費') return true; }
   return false;
+}
+// 追加：キー生成（コード|科目名|補助コード|補助名）
+function key_(code, name, subCd, subNm) {
+  return [code || '', name || '', subCd || '', subNm || ''].join('|');
 }
