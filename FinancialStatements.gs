@@ -1,20 +1,15 @@
 /*******************************************************
  * FinancialStatements.gs — 1_Data_import から JDL試算表（左BS｜右PL）を生成
- * スクショ準拠の固定レイアウト：
- *   BSヘッダ：科目コード, 科目名, 補助コード, 補助名, 期首, 借方発生, 貸方発生, 期末
- *   PLヘッダ：科目コード, 科目名, 補助コード, 補助名, 借方発生, 貸方発生, 当期損益
- * 仕様：
- *  - ヘッダ=4行目（1_Data_import）、データは5行目〜
- *  - 科目分類は名称ベース（事業主貸=資産／事業主借=負債／家事消費=収益[常にマイナス表示]）
- *  - 空行なし／行高18px／折返しオフ／親行太字・補助は「　→ 補助名」
+ * レイアウト固定：BS(科目コード, 科目名, 補助コード, 補助名, 期首, 借方発生, 貸方発生, 期末)
+ *                 PL(科目コード, 科目名, 補助コード, 補助名, 借方発生, 貸方発生, 当期損益)
+ * 表示順は「既存JDL試算表の親科目の順」を最優先（＝スクショの並び）。その他の仕様は会話どおり。
  *******************************************************/
 function buildJDLTrialBalance() {
   var ss = SpreadsheetApp.getActive();
   var src = ss.getSheetByName('1_Data_import');
   if (!src) throw new Error('シート「1_Data_import」が見つかりません。');
 
-  var headerRow = 4; // 1-indexed
-  var dataStart = headerRow + 1;
+  var headerRow = 4, dataStart = headerRow + 1;
   var lastRow = src.getLastRow(), lastCol = src.getLastColumn();
   if (lastRow < dataStart) { toast_('1_Data_import にデータがありません'); return; }
 
@@ -35,9 +30,7 @@ function buildJDLTrialBalance() {
   ]);
 
   var MAP = buildNameClassMap_();
-
-  var bsAgg = {}; // key=code|name|subCd|subNm → {cls,dr,cr}
-  var plAgg = {};
+  var bsAgg = {}, plAgg = {};
 
   rows.forEach(function (r) {
     var dr = {name:safe(r[col.DrName]), code:safe(r[col.DrCode]), subCd:safe(r[col.DrSubCd]), subNm:safe(r[col.DrSubNm]), amt:num(r[col.DrAmt])};
@@ -47,25 +40,47 @@ function buildJDLTrialBalance() {
   });
 
   var out = ss.getSheetByName('JDL試算表') || ss.insertSheet('JDL試算表');
-  var opening = readOpening_(out); // 期首だけ引継ぐ
+  var displayOrder = readDisplayOrder_(out);
+  var opening = readOpening_(out);
   out.clear();
 
   // BS（左）
   var bsHeaders = ['科目コード','科目名','補助コード','補助名','期首','借方発生','貸方発生','期末'];
-  var bsBlock = buildBs_(bsAgg, opening);
+  var bsBlock = buildBs_(bsAgg, opening, displayOrder.bs);
   write_(out, 1, 1, [ ['【貸借対照表（BS）】','','','','','','',''], bsHeaders ].concat(bsBlock.rows));
   formatBs_(out, 1, 1, bsBlock.rows.length + 2);
 
   // PL（右）
   var plHeaders = ['科目コード','科目名','補助コード','補助名','借方発生','貸方発生','当期損益'];
-  var plBlock = buildPl_(plAgg);
+  var plBlock = buildPl_(plAgg, displayOrder.pl);
   write_(out, 1, 10, [ ['【損益計算書（PL）】','','','','','',''], plHeaders ].concat(plBlock.rows));
   formatPl_(out, 1, 10, plBlock.rows.length + 2);
 
-  toast_('JDL試算表を作成（左：BS／右：PL）');
+  toast_('JDL試算表を作成（既存表示順で再描画）');
 }
 
-/* ====== 分類マップ（名称ベースのみ／ご指定反映）====== */
+function readDisplayOrder_(sh){
+  var ord = { bs:{}, pl:{} };
+  var vals = sh.getDataRange().getValues();
+  if (!vals || vals.length < 3) return ord;
+
+  var idx=0;
+  for (var r=2; r<vals.length; r++){
+    var code = String(vals[r][0]||'').trim();
+    var name = String(vals[r][1]||'').trim();
+    var subNm = String(vals[r][3]||'').trim();
+    if ((code || name) && !subNm){ ord.bs[[code,name,'',''].join('|')] = idx++; }
+  }
+  idx=0;
+  for (var r=2; r<vals.length; r++){
+    var code2 = String(vals[r][9]||'').trim();
+    var name2 = String(vals[r][10]||'').trim();
+    var subNm2 = String(vals[r][12]||'').trim();
+    if ((code2 || name2) && !subNm2){ ord.pl[[code2,name2,'',''].join('|')] = idx++; }
+  }
+  return ord;
+}
+
 function buildNameClassMap_(){
   var ASSET='ASSET', LIAB='LIAB', EQUITY='EQUITY', REV='REVENUE', EXP='EXPENSE';
   var map = {};
@@ -75,7 +90,7 @@ function buildNameClassMap_(){
   set(['買掛金','未払金','預り金','長期借入','事業主借'], LIAB);
 
   set(['売上高','雑収入','受取配当'], REV);
-  set(['家事消費'], REV, {special:'KAJI'}); // 収益扱いだが常にマイナス表示
+  set(['家事消費'], REV, {special:'KAJI'});
 
   set(['仕入高','給与手当','賞与','法定福利','福利厚生','外注費','旅費交通','通信費','交際費','会議費',
        '賃借料','地代家賃','リース料','保険料','修繕費','水道光熱','燃料費','消耗品費','租税公課','事務用品',
@@ -83,7 +98,6 @@ function buildNameClassMap_(){
   return map;
 }
 
-/* ====== 集計・表構築 ====== */
 function addLine_(bsAgg, plAgg, klass, acc, drAmt, crAmt){
   var key = key_(acc.code, acc.name, acc.subCd, acc.subNm);
   var cls = klass.cls;
@@ -99,53 +113,80 @@ function addLine_(bsAgg, plAgg, klass, acc, drAmt, crAmt){
   }
 }
 
-function buildBs_(agg, openingMap){
-  var list = Object.keys(agg).map(function(k){ return agg[k]; }).sort(function(a,b){
-    var A=(a.code||'')+(a.name||'')+(a.subCd||'')+(a.subNm||'');
-    var B=(b.code||'')+(b.name||'')+(b.subCd||'')+(b.subNm||'');
-    return A>B?1:(A<B?-1:0);
-  });
-  var parents = groupParent_(list);
-  var rows = [];
-  parents.forEach(function(p){
-    var net = (p.cls==='ASSET') ? (p.dr - p.cr) : (p.cr - p.dr);
-    var open = openingMap[key_(p.code,p.name,'','')] || 0;
-    rows.push([p.code, p.name, '', '', open, p.dr, p.cr, open + net]);
-    p.subs.forEach(function(s){
-      var sNet = (p.cls==='ASSET') ? (s.dr - s.cr) : (s.cr - s.dr);
-      var sOpen = openingMap[key_(s.code,s.name,s.subCd,s.subNm)] || 0;
-      rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, sOpen, s.dr, s.cr, sOpen + sNet]);
+function buildBs_(agg, openingMap, orderMap){
+  function sortByOrder(list){
+    var arr = (list||[]).slice();
+    arr.sort(function(a,b){
+      var ka = key_(a.code,a.name,'',''), kb = key_(b.code,b.name,'','');
+      var oa = (ka in (orderMap||{})) ? orderMap[ka] : 1e9;
+      var ob = (kb in (orderMap||{})) ? orderMap[kb] : 1e9;
+      if (oa !== ob) return oa - ob;
+      var A=(a.code||'')+(a.name||'')+(a.subCd||'')+(a.subNm||'');
+      var B=(b.code||'')+(b.name||'')+(b.subCd||'')+(b.subNm||'');
+      return A>B?1:(A<B?-1:0);
     });
-  });
-  return {rows: rows};
-}
+    return arr;
+  }
+  var byCls = {ASSET:[], LIAB:[], EQUITY:[]};
+  Object.keys(agg).forEach(function(k){ var o=agg[k]; (byCls[o.cls]=byCls[o.cls]||[]).push(o); });
 
-function buildPl_(agg){
   var rows = [];
-  var rev=[], exp=[], unk=[];
-  Object.keys(agg).forEach(function(k){
-    var o=agg[k];
-    if (o.cls==='REVENUE') rev.push(o);
-    else if (o.cls==='EXPENSE') exp.push(o);
-    else unk.push(o);
-  });
-  [{list:rev,cls:'REVENUE'},{list:exp,cls:'EXPENSE'},{list:unk,cls:'UNASSIGNED'}].forEach(function(sec){
-    var parents = groupParent_(sec.list);
+  ['ASSET','LIAB','EQUITY'].forEach(function(cls){
+    var parents = groupParent_(sortByOrder(byCls[cls]));
     parents.forEach(function(p){
-      var net = (sec.cls==='REVENUE') ? (p.cr - p.dr) : (p.dr - p.cr);
-      if (p.special==='KAJI' || hasKajishi_(p)) net = -Math.abs(net);
-      rows.push([p.code, p.name, '', '', p.dr, p.cr, net]);
-      p.subs.forEach(function(s){
-        var sNet = (sec.cls==='REVENUE') ? (s.cr - s.dr) : (s.dr - s.cr);
-        if (s.special==='KAJI') sNet = -Math.abs(sNet);
-        rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, s.dr, s.cr, sNet]);
+      var net = (cls==='ASSET') ? (p.dr - p.cr) : (p.cr - p.dr);
+      var open = openingMap[key_(p.code,p.name,'','')] || 0;
+      rows.push([p.code, p.name, '', '', open, p.dr, p.cr, open + net]);
+      p.subs.sort(function(a,b){
+        var A=(a.subCd||'')+(a.subNm||''); var B=(b.subCd||'')+(b.subNm||''); return A>B?1:(A<B?-1:0);
+      }).forEach(function(s){
+        var sNet = (cls==='ASSET') ? (s.dr - s.cr) : (s.cr - s.dr);
+        var sOpen = openingMap[key_(s.code,s.name,s.subCd,s.subNm)] || 0;
+        rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, sOpen, s.dr, s.cr, sOpen + sNet]);
       });
     });
   });
   return {rows: rows};
 }
 
-/* ====== 並び・整形・保存 ====== */
+function buildPl_(agg, orderMap){
+  function sortByOrder(list){
+    var arr = (list||[]).slice();
+    arr.sort(function(a,b){
+      var ka = key_(a.code,a.name,'',''), kb = key_(b.code,b.name,'','');
+      var oa = (ka in (orderMap||{})) ? orderMap[ka] : 1e9;
+      var ob = (kb in (orderMap||{})) ? orderMap[kb] : 1e9;
+      if (oa !== ob) return oa - ob;
+      var A=(a.code||'')+(a.name||'')+(a.subCd||'')+(a.subNm||'');
+      var B=(b.code||'')+(b.name||'')+(b.subCd||'')+(b.subNm||'');
+      return A>B?1:(A<B?-1:0);
+    });
+    return arr;
+  }
+  var rows = [], rev=[], exp=[], unk=[];
+  Object.keys(agg).forEach(function(k){
+    var o=agg[k];
+    if (o.cls==='REVENUE') rev.push(o); else if (o.cls==='EXPENSE') exp.push(o); else unk.push(o);
+  });
+  [{list:sortByOrder(rev),cls:'REVENUE'},{list:sortByOrder(exp),cls:'EXPENSE'},{list:sortByOrder(unk),cls:'UNASSIGNED'}]
+    .forEach(function(sec){
+      var parents = groupParent_(sec.list);
+      parents.forEach(function(p){
+        var net = (sec.cls==='REVENUE') ? (p.cr - p.dr) : (p.dr - p.cr);
+        if (p.special==='KAJI' || hasKajishi_(p)) net = -Math.abs(net);
+        rows.push([p.code, p.name, '', '', p.dr, p.cr, net]);
+        p.subs.sort(function(a,b){
+          var A=(a.subCd||'')+(a.subNm||''); var B=(b.subCd||'')+(b.subNm||''); return A>B?1:(A<B?-1:0);
+        }).forEach(function(s){
+          var sNet = (sec.cls==='REVENUE') ? (s.cr - s.dr) : (s.dr - s.cr);
+          if (s.special==='KAJI') sNet = -Math.abs(sNet);
+          rows.push([s.code, '', s.subCd, '　→ ' + s.subNm, s.dr, s.cr, sNet]);
+        });
+      });
+    });
+  return {rows: rows};
+}
+
 function groupParent_(list){
   list = (list||[]).slice().sort(function(a,b){
     var A=(a.code||'')+(a.name||'')+(a.subCd||'')+(a.subNm||'');
@@ -165,7 +206,7 @@ function groupParent_(list){
 function readOpening_(sh){
   var map={}, vals=sh.getDataRange().getValues();
   if (!vals || vals.length < 3) return map;
-  var openIdx = 4; // 列E=期首（0-based）
+  var openIdx = 4; // 0-based: 列E=期首
   for (var r=2; r<vals.length; r++){
     var row=vals[r], code=safe(row[0]), name=safe(row[1]), subCd=safe(row[2]), subNm=safe(row[3]);
     if (!code && !name && !subCd && !subNm) continue;
@@ -185,7 +226,6 @@ function formatBs_(sh, r, c, rows){
   });
   sh.getRange(r, c, rows, 8).setWrap(false);
   sh.setRowHeights(r+2, Math.max(0, rows-2), 18);
-
   var data=sh.getRange(r+2, c, rows-2, 4).getValues();
   for (var i=0;i<data.length;i++){
     var subNm=data[i][3];
@@ -201,7 +241,6 @@ function formatPl_(sh, r, c, rows){
   });
   sh.getRange(r, c, rows, 7).setWrap(false);
   sh.setRowHeights(r+2, Math.max(0, rows-2), 18);
-
   var data=sh.getRange(r+2, c, rows-2, 4).getValues();
   for (var i=0;i<data.length;i++){
     var subNm=data[i][3];
