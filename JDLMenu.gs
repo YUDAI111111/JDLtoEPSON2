@@ -1,18 +1,11 @@
 /*******************************************************
- * JDLMenu.gs — メニュー追加
+ * JDLMenu.gs — メニュー追加（トリガー不要・1ボタン）
  *******************************************************/
-function onOpen_JDLMenu_() {
+function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('JDL試算表')
       .addItem('JDL試算表作成', 'buildJDLTrialBalance')
       .addToUi();
-  } catch (_) {}
-}
-function addJDLMenuOnce() {
-  SpreadsheetApp.getUi()
-    .createMenu('JDL試算表')
-    .addItem('JDL試算表作成', 'buildJDLTrialBalance')
-    .addToUi();
-  SpreadsheetApp.getActive().toast('このセッションだけメニューを追加しました','JDL試算表',5);
+  } catch (e) {}
 }
