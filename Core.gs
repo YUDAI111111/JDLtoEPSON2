@@ -252,7 +252,8 @@ function onOpen() {
     .addItem('③ 仕訳をEPSON変換（厳格）', 'convertImportToEpson_STRICT')
     .addSeparator()
     .addItem('デバッグ（科目親子集計）', 'buildDebugSubjects')
-    .addToUi();
+    .addToUi()
+    .addJDLMenu_();
 }
 /** ===== END setup.gs ===== */
 
