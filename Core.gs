@@ -134,24 +134,24 @@ function _showProgressSidebar_() {
     '<div style="font-weight:600;margin-bottom:6px">変換の進捗</div>' +
     '<div id="label" style="opacity:.8">準備中…</div>' +
     '<div style="height:10px;background:#eee;border-radius:6px;margin:10px 0;overflow:hidden">' +
-      '<div id="bar" style="height:100%;width:0%;background:#1a73e8;transition:width .25s"></div>' +
+    '<div id="bar" style="height:100%;width:0%;background:#1a73e8;transition:width .25s"></div>' +
     '</div>' +
     '<div id="detail" style="color:#444;white-space:pre-line"></div>' +
     '<script>' +
-      'function fmt(sec){sec=Math.max(0,Math.floor(sec));var m=Math.floor(sec/60),s=sec%60;return (m>0?m+\"分\":\"\")+s+\"秒\";}' +
+      'function fmt(sec){sec=Math.max(0,Math.floor(sec));var m=Math.floor(sec/60),s=sec%60;return (m>0?m+"分":"")+s+"秒";}' +
       'async function tick(){' +
         'google.script.run.withSuccessHandler(function(p){' +
           'if(!p) return;' +
           'var total=p.total||0, done=p.processed||0;' +   // ← processed を％の分子に
-          'var pct = total? Math.floor(done*100/total): (p.phase===\"done\"?100:0);' +
-          'document.getElementById(\"bar\").style.width=pct+\"%\";' +
-          'document.getElementById(\"label\").textContent = (p.phase===\"running\"?\"変換中\":\"状態\") + \" … \" + pct + \"%\";' +
-          'var det=\"\";' +
-          'if(total){ det += done+\"/\"+total+\"  残り約 \"+fmt(p.etaSec); }' +
-          'det += \"\\n成功:\"+(p.success||0)+\" / エラー:\"+(p.error||0);' +
-          'if(p.message) det += \"\\n\"+p.message;' +
-          'document.getElementById(\"detail\").textContent = det;' +
-          'if(p.phase===\"done\"||p.phase===\"error\"){clearInterval(window._iv);}' +
+          'var pct = total? Math.floor(done*100/total): (p.phase==="done"?100:0);' +
+          'document.getElementById("bar").style.width=pct+"%";' +
+          'document.getElementById("label").textContent = (p.phase==="running"?"変換中":"状態") + " … " + pct + "%";' +
+          'var det="";' +
+          'if(total){ det += done+"/"+total+"  残り約 "+fmt(p.etaSec); }' +
+          'det += "\\n成功:"+(p.success||0)+" / エラー:"+(p.error||0);' +
+          'if(p.message) det += "\\n"+p.message;' +
+          'document.getElementById("detail").textContent = det;' +
+          'if(p.phase==="done"||p.phase==="error"){clearInterval(window._iv);}' +
         '}).progressSnapshot();' +
       '}' +
       'window._iv=setInterval(tick,800);tick();' +
@@ -250,10 +250,9 @@ function onOpen() {
     .addItem('① マッピング（固定ヘッダ版）', 'buildMappingGrid')
     .addItem('② マッピング保存', 'saveMappingStore')
     .addItem('③ 仕訳をEPSON変換（厳格）', 'convertImportToEpson_STRICT')
+    .addItem('JDL試算表作成', 'buildJDLTrialBalance')
     .addSeparator()
     .addItem('デバッグ（科目親子集計）', 'buildDebugSubjects')
-    .addToUi()
-    .addJDLMenu_();
+    .addToUi();
 }
 /** ===== END setup.gs ===== */
-
