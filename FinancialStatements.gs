@@ -1,5 +1,5 @@
 /*******************************************************
- * FinancialStatements.gs — CSV（＝既存JDL試算表）の並び順で再描画
+ * FinancialStatements.gs — CSV（＝既存JDL試算表）の並び順で再描画（write_除去・setValues直書き版）
  * 仕様（合意済）：
  *  - 並び順：既存「JDL試算表」の親順＋直下補助順を完全踏襲（BS/PLとも）。新規は末尾にのみ追加。
  *  - BS：E=期首, F=借方発生, G=貸方発生, H=期末残高（※Hは“式”で、期首を必ず含む）
@@ -59,19 +59,27 @@ function buildJDLTrialBalance() {
   // 6) クリアして再描画（並びはskeleton通り、新規は末尾）
   out.clear();
 
-  // 左：BS
+  // 左：BS（write_ を使わず setValues で直書き）
+  var bsTitle   = ['【貸借対照表（BS）】','','','','','','',''];
   var bsHeaders = ['科目コード','科目名','補助コード','補助名','期首','借方発生','貸方発生','期末残高'];
-  var bsRows = buildStrictBS_(skeleton.bs, opening, agg.bs);
-  write_(out, 1, 1, [ ['【貸借対照表（BS）】','','','','','','',''], bsHeaders ].concat(bsRows.values));
-  formatBlock_(out, 1, 1, bsRows.values.length + 2, 8, [5,6,7,8], 8);
-  // 期末残高（H列）へ式を設定
-  setBsFormulas_(out, 3, 1, bsRows.meta); // データ開始行=3行目
+  var bsRowsObj = buildStrictBS_(skeleton.bs, opening, agg.bs);
+  var bsMatrix  = [bsTitle, bsHeaders].concat(bsRowsObj.values);
+  if (bsMatrix.length > 0) {
+    out.getRange(1, 1, bsMatrix.length, 8).setValues(bsMatrix);
+    formatBlock_(out, 1, 1, bsMatrix.length, 8, [5,6,7,8], 8);
+    // 期末残高（H列）へ式を設定
+    setBsFormulas_(out, 3, 1, bsRowsObj.meta); // データ開始行=3行目
+  }
 
-  // 右：PL
+  // 右：PL（write_ を使わず setValues で直書き）
+  var plTitle   = ['【損益計算書（PL）】','','','','','',''];
   var plHeaders = ['科目コード','科目名','補助コード','補助名','借方発生','貸方発生','当期損益'];
-  var plRows = buildStrictPL_(skeleton.pl, agg.pl);
-  write_(out, 1, 10, [ ['【損益計算書（PL）】','','','','','',''], plHeaders ].concat(plRows));
-  formatBlock_(out, 1, 10, plRows.length + 2, 7, [5,6,7], 7);
+  var plRows    = buildStrictPL_(skeleton.pl, agg.pl);
+  var plMatrix  = [plTitle, plHeaders].concat(plRows);
+  if (plMatrix.length > 0) {
+    out.getRange(1, 10, plMatrix.length, 7).setValues(plMatrix);
+    formatBlock_(out, 1, 10, plMatrix.length, 7, [5,6,7], 7);
+  }
 
   toast_('JDL試算表をCSVの並び順で再描画しました');
 }
@@ -115,8 +123,8 @@ function aggregate_(rows, col, MAP){
     t.dr += o.dr; t.cr += o.cr; bucket[k]=t;
   }
   rows.forEach(function(r){
-    var dr = {code:safe(r[col.DrCode]), name:safe(r[col.DrName]), subCd:safe(r[col.DrSubCd]), subNm:safe(r[col.DrSubNm]), dr:num(r[col.DrAmt])||0, cr:0};
-    var cr = {code:safe(r[col.CrCode]), name:safe(r[col.CrName]), subCd:safe(r[col.CrSubCd]), subNm:safe(r[col.CrSubNm]), dr:0, cr:num(r[col.CrAmt])||0};
+    var dr = {code:safe(r[col.DrCode]), name:safe(r[col.DrName]), subCd:safe(r[col.DrSubCd]), subNm:safe(r[col.DrSubNm]), dr=num(r[col.DrAmt])||0, cr:0};
+    var cr = {code:safe(r[col.CrCode]), name:safe(r[col.CrName]), subCd:safe(r[col.CrSubCd]), subNm:safe(r[col.CrSubNm]), dr:0, cr=num(r[col.CrAmt])||0};
     if (dr.name || dr.dr) { var c=classify_(dr.name, MAP); (isBS_(c.cls))?upsert(bs,dr,c.cls,c.special):upsert(pl,dr,c.cls,c.special); }
     if (cr.name || cr.cr) { var c2=classify_(cr.name, MAP); (isBS_(c2.cls))?upsert(bs,cr,c2.cls,c2.special):upsert(pl,cr,c2.cls,c2.special); }
   });
