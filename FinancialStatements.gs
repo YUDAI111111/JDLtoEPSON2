@@ -94,6 +94,7 @@ function readSkeleton_(sh){
   }
   return sk;
 }
+
 function readOpeningFromSheet_(sh){
   var map={}, vals=sh.getDataRange().getValues();
   if (!vals || vals.length < 3) return map;
@@ -133,7 +134,7 @@ function buildStrictBS_(skeleton, opening, bsAgg){
     var a = bsAgg[k] || {dr:0,cr:0,cls:classify_(s.name, buildNameClassMap_()).cls, special:classify_(s.name, buildNameClassMap_()).special};
     var open = (opening.hasOwnProperty(k)) ? opening[k] : 0;
 
-    rows.push([
+    rows.push([ 
       s.code, s.name || '', s.subCd || '', s.subNm ? '　→ ' + s.subNm : '',
       open, a.dr, a.cr, '' // H列は後で式で入れる
     ]);
