@@ -253,7 +253,7 @@ function onOpen() {
     .addItem('JDL試算表作成', 'buildJDLTrialBalance')
     .addSeparator()
     .addItem('デバッグ（科目親子集計）', 'buildDebugSubjects')
-    .addToUi()
-    .addJDLMenu_();
+    .addToUi();  // ← 最後の .addJDLMenu_(); は削除済み
 }
+
 /** ===== END setup.gs ===== */
