@@ -1,18 +1,31 @@
-/*******************************************************
- * JDLMenu.gs — 衝突回避版（このファイルでは onOpen を定義しない）
- * 使い方：Core.gs 側の onOpen() の末尾で addJDLMenu_(); を1行呼び出してください。
- *******************************************************/
-
-/** メニュー追加本体（トリガー不要・UIのみ） */
-function addJDLMenu_() {
-  var ui = SpreadsheetApp.getUi();
-  ui.createMenu('JDL試算表')
-    .addItem('JDL試算表作成', 'buildJDLTrialBalance') // FinancialStatements.gs のエントリを呼ぶ
-    .addToUi();
+/** JDLMenu_fix.gs — UI-safe menu patch (minimal, non-breaking) */
+function _safeUi_() {
+  try { return SpreadsheetApp.getUi(); } catch (e) { return null; }
 }
-
-/** 手動追加（デバッグ用）：エディタから実行すれば即メニューが出ます */
 function addJDLMenuOnce() {
-  addJDLMenu_();
-  SpreadsheetApp.getActive().toast('メニューを追加しました','JDL試算表',5);
+  var ss = SpreadsheetApp.getActive();
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var t = triggers[i];
+    if (t.getHandlerFunction && t.getHandlerFunction() === 'onOpenJDL') return;
+  }
+  ScriptApp.newTrigger('onOpenJDL').forSpreadsheet(ss).onOpen().create();
+}
+function onOpenJDL(e) {
+  var ui = _safeUi_();
+  if (!ui) return;
+  addJDLMenu_UI_(ui);
+}
+function addJDLMenu_UI_(ui) {
+  try {
+    ui.createMenu('JDL試算表')
+      .addItem('JDL試算表作成', 'buildJDLTrialBalance')
+      .addToUi();
+  } catch (err) {
+    try {
+      ui.createMenu('JDL試算表(2)')
+        .addItem('JDL試算表作成', 'buildJDLTrialBalance')
+        .addToUi();
+    } catch (e) {}
+  }
 }
